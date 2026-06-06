@@ -1,0 +1,76 @@
+config:
+  issuer: https://dex.spectraidp.com
+  storage:
+    type: kubernetes
+    config:
+      inCluster: true
+  connectors:
+    - type: github
+      id: github
+      name: GitHub
+      config:
+        clientID: $GITHUB_CLIENT_ID
+        clientSecret: $GITHUB_CLIENT_SECRET
+        redirectURI: https://dex.spectraidp.com/callback
+        orgs:
+          - name: SpectraIDP
+        teamNameField: slug
+        loadAllGroups: true
+  oauth2:
+    skipApprovalScreen: true
+  staticClients:
+    - id: kubernetes
+      name: Kubernetes
+      # secret read from the KUBERNETES_CLIENT_SECRET env var via dex's native
+      # `secretEnv` (kubernetes-oauth-client k8s secret); value unchanged, so
+      # existing spectl/kubeconfig logins keep working — no plaintext in git.
+      secretEnv: KUBERNETES_CLIENT_SECRET
+      redirectURIs:
+        - http://localhost:8000
+        - http://localhost:18000
+    # Grafana SSO — secret read from the GRAFANA_CLIENT_SECRET env var via dex's
+    # native staticClients `secretEnv` (dex does NOT expand $VARs in static
+    # client secrets, only `secretEnv` works). Sourced from the
+    # grafana-oauth-client k8s secret; mirror of monitoring/grafana-oauth.
+    - id: grafana
+      name: Grafana
+      secretEnv: GRAFANA_CLIENT_SECRET
+      redirectURIs:
+        - https://grafana.spectraidp.com/login/generic_oauth
+
+envVars:
+  - name: KUBERNETES_CLIENT_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: kubernetes-oauth-client
+        key: client-secret
+  - name: GITHUB_CLIENT_ID
+    valueFrom:
+      secretKeyRef:
+        name: github-client
+        key: client-id
+  - name: GITHUB_CLIENT_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: github-client
+        key: client-secret
+  - name: GRAFANA_CLIENT_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: grafana-oauth-client
+        key: client-secret
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+  hosts:
+    - host: dex.spectraidp.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: dex-tls
+      hosts:
+        - dex.spectraidp.com
