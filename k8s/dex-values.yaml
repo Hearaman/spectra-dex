@@ -37,6 +37,21 @@ config:
       secretEnv: GRAFANA_CLIENT_SECRET
       redirectURIs:
         - https://grafana.spectraidp.com/login/generic_oauth
+    # Vault SSO — lets developers log in to vault.spectraidp.com via GitHub (dex),
+    # so the Environments-panel Vault deep links are usable by humans (not just the
+    # k8s-auth service accounts ESO / the controllers use). Secret read from the
+    # VAULT_CLIENT_SECRET env var via `secretEnv` (sourced from the
+    # vault-oauth-client k8s secret; mirror of grafana above). Redirect URIs cover
+    # the Vault UI OIDC callback, the bare /oidc/callback, and the `vault login
+    # -method=oidc` CLI loopback. Vault maps the dex group `SpectraIDP:<slug>` to
+    # the `spectra-team-<slug>` policy (see spectra-dex/scripts/vault-oidc-setup.sh).
+    - id: vault
+      name: Vault
+      secretEnv: VAULT_CLIENT_SECRET
+      redirectURIs:
+        - https://vault.spectraidp.com/ui/vault/auth/oidc/oidc/callback
+        - https://vault.spectraidp.com/oidc/callback
+        - http://localhost:8250/oidc/callback
 
 envVars:
   - name: KUBERNETES_CLIENT_SECRET
@@ -58,6 +73,11 @@ envVars:
     valueFrom:
       secretKeyRef:
         name: grafana-oauth-client
+        key: client-secret
+  - name: VAULT_CLIENT_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: vault-oauth-client
         key: client-secret
 
 ingress:
